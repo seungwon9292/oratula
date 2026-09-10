@@ -19,6 +19,10 @@ The bot warms the 1.7B Qwen model in the background at startup, so wait for its
 `qwen3-tts-1.7b` uses FasterQwen + Triton on WSL/Linux (BF16, SDPA,
 layers 0–23 patched before graph capture; no KV quantization).
 Select `/oratula-voice model:qwen3-tts-1.7b voice:Sohee speed:1.0`.
+Prefix a message with a free-form instruction to control emotion and delivery:
+`[기쁘고 신나게] 오늘 정말 좋은 일이 있었어!`. The bracketed instruction
+is passed to Qwen 1.7B and is not spoken. For other models, the tag is removed
+and only the remaining text is spoken. Malformed or empty tags are read normally.
 Set `QWEN_TRITON=0` in `.env` and restart to use plain FasterQwen for 1.7B.
 Native Windows uses plain FasterQwen. The 0.6B option remains unchanged.
 Both Qwen sizes need CUDA. Changing size loads another model into GPU memory;

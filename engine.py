@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import warnings
 
+from core import split_emotion_instruction
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 # Keep all automatically downloaded assets inside the project.
@@ -103,6 +105,8 @@ def _synthesize_in_worker(text, preference):
     """Run imports, model loading, and inference outside the Discord process."""
     import soundfile as sf
 
+    instruction, spoken_text = split_emotion_instruction(text)
+
     if preference.model == "mms-tts-kor":
         import torch
         from transformers import VitsModel, VitsTokenizer
@@ -115,7 +119,7 @@ def _synthesize_in_worker(text, preference):
             _MODELS[preference.model] = (tokenizer, model)
         tokenizer, model = _MODELS[preference.model]
         model.speaking_rate = preference.speed
-        inputs = tokenizer(text=text, return_tensors="pt")
+        inputs = tokenizer(text=spoken_text, return_tensors="pt")
         with torch.inference_mode():
             wav = model(**inputs).waveform[0].cpu().numpy()
         result = io.BytesIO()
@@ -148,9 +152,10 @@ def _synthesize_in_worker(text, preference):
             _MODELS[preference.model] = loaded_model
         model = _MODELS[preference.model]
         wavs, sample_rate = model.generate_custom_voice(
-            text=text,
+            text=spoken_text,
             language="Korean",
             speaker=preference.voice,
+            instruct=instruction if preference.model.endswith("1.7b") else None,
             max_new_tokens=1024,
         )
         wav = np.asarray(wavs[0], dtype=np.float32)
@@ -176,7 +181,7 @@ def _synthesize_in_worker(text, preference):
         _STYLES[style_key] = model.get_voice_style(voice_name=preference.voice)
     style = _STYLES[style_key]
     total_steps = max(1, int(os.getenv("SUPERTONIC_TOTAL_STEPS", "5")))
-    wav, _ = model.synthesize(text, voice_style=style, lang="ko",
+    wav, _ = model.synthesize(spoken_text, voice_style=style, lang="ko",
                               speed=preference.speed, total_steps=total_steps)
     result = io.BytesIO()
     sf.write(result, wav.reshape(-1), model.sample_rate, format="WAV", subtype="PCM_16")

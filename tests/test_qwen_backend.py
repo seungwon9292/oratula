@@ -25,12 +25,15 @@ class QwenBackendTests(unittest.TestCase):
         with patch.dict(engine._MODELS, {}, clear=True), patch.dict(os.environ, {"QWEN_TRITON": "1"}), patch.dict(sys.modules, {module.__name__: module}), patch.object(engine.os, "name", "posix"), patch.object(engine, "_qwen_model_class", return_value=factory), patch.object(engine, "_cached_or_download", return_value="cached") as download, patch("torch.cuda.is_available", return_value=True):
             pref = Preference(model="qwen3-tts-1.7b", voice="Sohee")
             for _ in range(2):
-                result = engine._synthesize_in_worker("테스트", pref)
+                result = engine._synthesize_in_worker("[기쁘게] 테스트", pref)
                 self.assertEqual(sf.info(io.BytesIO(result)).samplerate, 24000)
             self.assertEqual(events, ["patch", "generate", "generate"])
             download.assert_called_once_with("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice")
             factory.from_pretrained.assert_called_once()
             module.apply_triton_kernels.assert_called_once_with(model.model, patch_range=(0, 24))
+            for call in model.generate_custom_voice.call_args_list:
+                self.assertEqual(call.kwargs["text"], "테스트")
+                self.assertEqual(call.kwargs["instruct"], "기쁘게")
 
     def test_both_sizes_expose_same_speakers(self):
         self.assertEqual(MODEL_VOICES["qwen3-tts-0.6b"], MODEL_VOICES["qwen3-tts-1.7b"])

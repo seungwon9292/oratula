@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--backend", choices=["faster", "hybrid"], default="faster")
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--threads", type=int)
+    parser.add_argument("--text", default="안녕하세요. 디스코드 음성 테스트입니다.")
     args = parser.parse_args()
     os.environ["QWEN_TRITON"] = "1" if args.backend == "hybrid" else "0"
     if args.threads:
@@ -48,9 +49,9 @@ def main():
             import faster_qwen3_tts.generate as generation
             tokenizer = _MODELS[preference.model].model.model.speech_tokenizer
             with patch.object(generation, "fast_generate", timed("tokens_s", generation.fast_generate)), patch.object(tokenizer, "decode", timed("decode_s", tokenizer.decode)):
-                audio = _synthesize_in_worker("안녕하세요. 디스코드 음성 테스트입니다.", preference)
+                audio = _synthesize_in_worker(args.text, preference)
         else:
-            audio = _synthesize_in_worker("안녕하세요. 디스코드 음성 테스트입니다.", preference)
+            audio = _synthesize_in_worker(args.text, preference)
         elapsed = time.perf_counter() - start
         wav, sr = sf.read(io.BytesIO(audio))
         duration = len(wav) / sr

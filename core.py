@@ -83,3 +83,15 @@ def clean_text(text, limit=300):
     text = re.sub(r"[`*_~]", "", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text[:limit]
+
+
+def split_emotion_instruction(text, limit=80):
+    """Split a leading ``[instruction]`` tag from the text to speak."""
+    match = re.match(r"^\s*\[([^\[\]\r\n]{1,80})\]\s*(.+)$", text, flags=re.S)
+    if not match:
+        return None, text
+    instruction = re.sub(r"\s+", " ", match.group(1)).strip()[:limit]
+    spoken_text = match.group(2).strip()
+    if not instruction or not spoken_text:
+        return None, text
+    return instruction, spoken_text

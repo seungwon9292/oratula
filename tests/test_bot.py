@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from core import MODEL_VOICES, Preference, Store, clean_text, eligible
+from core import MODEL_VOICES, Preference, Store, clean_text, eligible, split_emotion_instruction
 import bot as module
 
 
@@ -65,6 +65,14 @@ class CoreTests(unittest.TestCase):
         self.assertNotIn("example", result)
         self.assertIn("안녕", result)
         self.assertEqual(len(clean_text("가" * 500)), 300)
+
+    def test_split_emotion_instruction(self):
+        self.assertEqual(
+            split_emotion_instruction("[기쁘고 신나게] 오늘 정말 좋아!"),
+            ("기쁘고 신나게", "오늘 정말 좋아!"),
+        )
+        self.assertEqual(split_emotion_instruction("평범한 대사"), (None, "평범한 대사"))
+        self.assertEqual(split_emotion_instruction("[] 대사"), (None, "[] 대사"))
 
 
 class BotTests(unittest.IsolatedAsyncioTestCase):
