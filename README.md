@@ -1,50 +1,31 @@
-# Oratula (Faster Qwen edition)
+# Oratula
 
-This edition preserves all original Discord commands, voices, preferences, and
-Supertonic/MeloTTS/MMS engines. `qwen3-tts-0.6b` uses FasterQwen3TTS with
-CUDA graphs and SDPA. FlashAttention compilation is not required. Qwen requires
-an NVIDIA CUDA GPU; the CPU models remain available without one.
-
-FasterQwen is pinned to revision `a70afc0f81f7f5f8801c3227968f1102f43f211c`
-(0.3.2) for compatibility with the existing Transformers 4 dependencies.
-The WSL virtual environment is `~/.local/share/oratula-qwen/venv`.
-Run `bash setup.sh` in WSL, then `./start.ps1` from Windows or `bash start.sh`
-from WSL. Use only one bot instance per Discord token.
-
-The first Qwen request captures CUDA graphs and takes longer. Audio still plays
-after the full clip is generated; Discord streaming is not implemented here.
-The bot warms the 1.7B Qwen model in the background at startup, so wait for its
-`[예열 완료]` log before judging the first Discord request.
-
-`qwen3-tts-1.7b` uses FasterQwen + Triton on WSL/Linux (BF16, SDPA,
-layers 0–23 patched before graph capture; no KV quantization).
-Select `/oratula-voice model:qwen3-tts-1.7b voice:Sohee speed:1.0`.
-Prefix a message with a free-form instruction to control emotion and delivery:
-`[기쁘고 신나게] 오늘 정말 좋은 일이 있었어!`. The bracketed instruction
-is passed to Qwen 1.7B and is not spoken. For other models, the tag is removed
-and only the remaining text is spoken. Malformed or empty tags are read normally.
-Set `QWEN_TRITON=0` in `.env` and restart to use plain FasterQwen for 1.7B.
-Native Windows uses plain FasterQwen. The 0.6B option remains unchanged.
-Both Qwen sizes need CUDA. Changing size loads another model into GPU memory;
-restart the bot to release models loaded earlier if VRAM is tight.
-
-Use the WSL venv Python to run `benchmark_qwen.py --model qwen3-tts-1.7b
---backend hybrid --runs 5` (on one line). Compare with `--backend faster`.
-Reports and WAVs are written to `data/`; loading is excluded from warm averages.
-The report separates token generation and waveform decoding using synchronized
-wall-clock measurements. Benchmark one process at a time with other GPU work idle.
-
-A local Korean TTS bot for Discord. Reads server messages from users in the designated voice channel, with individual voice settings.
+A local Discord TTS bot that reads messages aloud with individual voice settings.
+Supports Supertonic, MeloTTS, MMS, and Qwen3-TTS.
 
 ## Setup and run
 
-Install Python 3.12 and Git. Linux also requires `python3.12-venv`. Qwen requires an NVIDIA CUDA GPU.
+Install Git and Python 3.12. Linux and WSL can use `uv` to install Python 3.12
+when it is not available from the system package manager. Qwen additionally
+requires an NVIDIA CUDA GPU.
 
-Windows:
+Windows with WSL2 (recommended for Qwen):
+
+```bash
+# Run once inside WSL
+bash setup.sh
+```
+
+```powershell
+# Run from Windows whenever you want to start the bot
+powershell -ExecutionPolicy Bypass -File .\start.ps1
+```
+
+Native Windows:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup.ps1
-powershell -ExecutionPolicy Bypass -File .\start.ps1
+powershell -ExecutionPolicy Bypass -File .\start.ps1 -Windows
 ```
 
 Linux:
@@ -54,7 +35,8 @@ bash setup.sh
 bash start.sh
 ```
 
-For Windows with an NVIDIA GPU, WSL2 is recommended for Qwen. Install and prepare the Ubuntu distribution first, then run `bash setup.sh` inside WSL. After that, launching `start.ps1` from Windows forwards execution to WSL automatically; use `start.ps1 -Windows` only to run the native Windows environment.
+`start.ps1` starts the Ubuntu WSL distribution by default. Pass `-Distro NAME`
+if your distribution uses another name.
 
 Between setup and startup, set `DISCORD_TOKEN` in the generated `.env`. Enable **Message Content Intent** in the Discord Developer Portal. Invite the bot with `bot` and `applications.commands` scopes and View Channels, Send Messages, Connect, and Speak permissions.
 
@@ -81,16 +63,17 @@ Start and stop require Manage Server permission or registration in `BOT_OWNER_ID
 | `supertonic-2` | F1–F5, M1–M5 |
 | `melotts-kr` | KR |
 | `mms-tts-kor` | MMS |
-| `qwen3-tts-0.6b` | Sohee, Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna |
-| `qwen3-tts-1.7b` | Same voices; FasterQwen + Triton on WSL/Linux |
+| `qwen3-tts-1.7b` | Sohee, Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna |
 
-MeloTTS is installed with `--no-deps` because its package metadata pins an old
-Transformers release. This branch keeps Transformers 4.57 for FasterQwen and
-installs MeloTTS's runtime dependencies explicitly. The Qwen → MeloTTS → Qwen
-switching path is covered by an actual synthesis smoke test; `pip check` still
-reports the upstream MeloTTS metadata mismatch.
+Default: Supertonic 3 / F1 / 1.0×. Speed range: 0.7–2.0×. Models are warmed
+in the background at startup. Playback begins after each clip is fully generated.
 
-Default: Supertonic 3 / F1 / 1.0×. Speed range: 0.7–2.0×. Qwen speaks Korean with every voice; Sohee is its native Korean speaker. Qwen loads on first use and adjusts speed after synthesis. Playback starts after the whole clip is generated.
+Prefix a message with an instruction to control Qwen's emotion and delivery:
+`[happily and excitedly] Something really wonderful happened today!`. The
+instruction is not spoken. Other models speak only the text after the tag.
+
+Set `QWEN_TRITON=0` in `.env` to disable the Triton backend on Linux or WSL.
+The other models can run on CPU.
 
 Optional `.env` settings: `DISCORD_GUILD_ID`, `BOT_OWNER_IDS` (comma-separated IDs), and `FFMPEG_PATH`. Settings are stored in `data/settings.sqlite3`; model downloads are cached under `data/`.
 
@@ -102,7 +85,7 @@ Optional `.env` settings: `DISCORD_GUILD_ID`, `BOT_OWNER_IDS` (comma-separated I
 - Limits: 300 characters, 60 seconds of playback, 30 queued messages per server, and one accepted message per user per second.
 - Messages older than two minutes are discarded. Inference exceeding two minutes or a crashed worker triggers replacement for subsequent requests.
 - Leaves empty channels within about 10 seconds, or after 30 minutes without an eligible message.
-- Remove View Channel permission from channels that must not be read. Run one bot instance per working directory.
+- Remove View Channel permission from channels that must not be read. Run only one bot instance per Discord token.
 
 ## Tests
 
@@ -120,7 +103,14 @@ Linux:
 .venv/bin/python prepare.py
 ```
 
-Use `prepare.py --models mms-tts-kor qwen3-tts-0.6b` to check selected models. For failures, check `/oratula-status`, bot logs, permissions, and channel membership.
+WSL:
+
+```bash
+~/.local/share/oratula-qwen/venv/bin/python -m unittest discover -s tests -v
+~/.local/share/oratula-qwen/venv/bin/python prepare.py
+```
+
+Use `prepare.py --models mms-tts-kor qwen3-tts-1.7b` to check selected models. For failures, check `/oratula-status`, bot logs, permissions, and channel membership.
 
 ## Licenses
 
