@@ -114,4 +114,13 @@ Use `prepare.py --models mms-tts-kor qwen3-tts-1.7b` to check selected models. F
 
 ## Licenses
 
-Model and dependency licenses apply separately: [Supertonic](https://github.com/supertone-inc/supertonic-py), [Supertonic 3](https://huggingface.co/Supertone/supertonic-3), [Supertonic 2](https://huggingface.co/Supertone/supertonic-2), [MMS Korean](https://huggingface.co/facebook/mms-tts-kor), [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS), and [FasterQwen3TTS](https://github.com/andimarafioti/faster-qwen3-tts). MMS weights use CC-BY-NC 4.0.
+Oratula's source code is licensed under the [MIT License](LICENSE).
+
+Models and dependencies retain their respective licenses:
+[Supertonic](https://github.com/supertone-inc/supertonic-py),
+[Supertonic 3](https://huggingface.co/Supertone/supertonic-3),
+[Supertonic 2](https://huggingface.co/Supertone/supertonic-2),
+[MMS Korean](https://huggingface.co/facebook/mms-tts-kor),
+[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS), and
+[FasterQwen3TTS](https://github.com/andimarafioti/faster-qwen3-tts).
+MMS weights use CC-BY-NC 4.0.
