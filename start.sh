@@ -4,7 +4,7 @@ set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
 if [[ -n "${WSL_DISTRO_NAME:-}" || "$(uname -r 2>/dev/null)" == *microsoft* ]]; then
-    venv_dir="${ORATULA_VENV:-$HOME/.local/share/oratula/venv}"
+    venv_dir="${ORATULA_VENV:-$HOME/.local/share/oratula-qwen/venv}"
 else
     venv_dir="${ORATULA_VENV:-.venv}"
 fi

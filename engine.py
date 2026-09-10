@@ -49,20 +49,14 @@ def _qwen_model_class():
         # qwen-tts imports its unused 25 Hz tokenizer eagerly. It prints SoX and
         # flash-attn warnings even though this project uses the 12 Hz model with SDPA.
         with redirect_stdout(io.StringIO()):
-            from qwen_tts import Qwen3TTSModel
+            import qwen_tts  # Load its optional tokenizer imports under the SoX guard.
+            from faster_qwen3_tts import FasterQwen3TTS as Qwen3TTSModel
     finally:
         if previous_sox_module is None:
             sys.modules.pop("sox", None)
         else:
             sys.modules["sox"] = previous_sox_module
     return Qwen3TTSModel
-
-
-def _qwen_attention_implementation():
-    """Use FlashAttention when installed, while keeping the portable fallback."""
-    import importlib.util
-
-    return "flash_attention_2" if importlib.util.find_spec("flash_attn") else "sdpa"
 
 
 def _change_tempo(wav, sample_rate, speed):
@@ -128,22 +122,30 @@ def _synthesize_in_worker(text, preference):
         sf.write(result, wav, model.config.sampling_rate, format="WAV", subtype="PCM_16")
         return result.getvalue()
 
-    if preference.model == "qwen3-tts-0.6b":
+    if preference.model in ("qwen3-tts-0.6b", "qwen3-tts-1.7b"):
         import numpy as np
         import torch
         Qwen3TTSModel = _qwen_model_class()
 
         if preference.model not in _MODELS:
             use_cuda = torch.cuda.is_available()
+            if not use_cuda:
+                raise RuntimeError("Faster Qwen requires CUDA. Select Supertonic or MMS for CPU synthesis.")
             model_path = _cached_or_download(
-                "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+                "Qwen/Qwen3-TTS-12Hz-" + ("1.7B" if preference.model.endswith("1.7b") else "0.6B") + "-CustomVoice"
             )
-            _MODELS[preference.model] = Qwen3TTSModel.from_pretrained(
+            loaded_model = Qwen3TTSModel.from_pretrained(
                 model_path,
-                device_map="cuda:0" if use_cuda else "cpu",
+                device="cuda:0",
                 dtype=torch.bfloat16 if use_cuda else torch.float32,
-                attn_implementation=_qwen_attention_implementation(),
+                attn_implementation="sdpa",
             )
+            if preference.model.endswith("1.7b") and os.getenv("QWEN_TRITON", "1") == "1" and os.name != "nt":
+                from qwen3_tts_triton.models.patching import apply_triton_kernels, find_patchable_model
+                # Patch before the first generation captures CUDA graphs.
+                internal = find_patchable_model(loaded_model.model)
+                apply_triton_kernels(internal, patch_range=(0, 24))
+            _MODELS[preference.model] = loaded_model
         model = _MODELS[preference.model]
         wavs, sample_rate = model.generate_custom_voice(
             text=text,
@@ -156,26 +158,6 @@ def _synthesize_in_worker(text, preference):
             wav = _change_tempo(wav, sample_rate, preference.speed)
         result = io.BytesIO()
         sf.write(result, wav, sample_rate, format="WAV", subtype="PCM_16")
-        return result.getvalue()
-
-    if preference.model == "melotts-kr":
-        import torch
-        from melo.api import TTS
-
-        if preference.model not in _MODELS:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            _MODELS[preference.model] = TTS(language="KR", device=device)
-        model = _MODELS[preference.model]
-        speaker_id = model.hps.data.spk2id["KR"]
-        wav = model.tts_to_file(
-            text,
-            speaker_id,
-            output_path=None,
-            speed=preference.speed,
-            quiet=True,
-        )
-        result = io.BytesIO()
-        sf.write(result, wav, model.hps.data.sampling_rate, format="WAV", subtype="PCM_16")
         return result.getvalue()
 
     from supertonic import TTS
@@ -228,7 +210,7 @@ class Engine:
 
     async def synthesize(self, text, preference):
         loop = asyncio.get_running_loop()
-        kind = "gpu" if preference.model in ("melotts-kr", "qwen3-tts-0.6b") else "cpu"
+        kind = "gpu" if preference.model in ("qwen3-tts-0.6b", "qwen3-tts-1.7b") else "cpu"
         async with self.locks[kind]:
             if self.closed:
                 raise RuntimeError("TTS engine is closed")

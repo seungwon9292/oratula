@@ -48,12 +48,6 @@ if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
 if ($LASTEXITCODE -ne 0) { throw 'PyTorch installation failed.' }
 & .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
-& .\.venv\Scripts\python.exe -m pip install --no-deps git+https://github.com/myshell-ai/MeloTTS.git
-if ($LASTEXITCODE -ne 0) { throw 'MeloTTS installation failed.' }
-& .\.venv\Scripts\python.exe -m pip install --no-deps 'qwen-tts==0.1.1'
-if ($LASTEXITCODE -ne 0) { throw 'Qwen3-TTS installation failed.' }
-& .\.venv\Scripts\python.exe -m unidic download
-if ($LASTEXITCODE -ne 0) { throw 'MeCab dictionary installation failed.' }
 if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
 & .\.venv\Scripts\python.exe prepare.py
 if ($LASTEXITCODE -ne 0) { throw 'Model preparation failed. Check internet connection and retry.' }

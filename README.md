@@ -1,10 +1,40 @@
-# Oratula
+# Oratula (Faster Qwen edition)
+
+This edition preserves all original Discord commands, voices, preferences, and
+Supertonic/MMS engines. MeloTTS has been removed. `qwen3-tts-0.6b` uses FasterQwen3TTS with
+CUDA graphs and SDPA. FlashAttention compilation is not required. Qwen requires
+an NVIDIA CUDA GPU; the CPU models remain available without one.
+
+FasterQwen is pinned to revision `a70afc0f81f7f5f8801c3227968f1102f43f211c`
+(0.3.2) for compatibility with the existing Transformers 4 dependencies.
+The WSL virtual environment is `~/.local/share/oratula-qwen/venv`.
+Run `bash setup.sh` in WSL, then `./start.ps1` from Windows or `bash start.sh`
+from WSL. Use only one bot instance per Discord token.
+
+The first Qwen request captures CUDA graphs and takes longer. Audio still plays
+after the full clip is generated; Discord streaming is not implemented here.
+The bot warms the 1.7B Qwen model in the background at startup, so wait for its
+`[예열 완료]` log before judging the first Discord request.
+
+`qwen3-tts-1.7b` uses FasterQwen + Triton on WSL/Linux (BF16, SDPA,
+layers 0–23 patched before graph capture; no KV quantization).
+Select `/oratula-voice model:qwen3-tts-1.7b voice:Sohee speed:1.0`.
+Set `QWEN_TRITON=0` in `.env` and restart to use plain FasterQwen for 1.7B.
+Native Windows uses plain FasterQwen. The 0.6B option remains unchanged.
+Both Qwen sizes need CUDA. Changing size loads another model into GPU memory;
+restart the bot to release models loaded earlier if VRAM is tight.
+
+Use the WSL venv Python to run `benchmark_qwen.py --model qwen3-tts-1.7b
+--backend hybrid --runs 5` (on one line). Compare with `--backend faster`.
+Reports and WAVs are written to `data/`; loading is excluded from warm averages.
+The report separates token generation and waveform decoding using synchronized
+wall-clock measurements. Benchmark one process at a time with other GPU work idle.
 
 A local Korean TTS bot for Discord. Reads server messages from users in the designated voice channel, with individual voice settings.
 
 ## Setup and run
 
-Install Python 3.12 and Git. Linux also requires `python3.12-venv`. NVIDIA GPUs are recommended for Qwen and MeloTTS; CPU fallback is slower.
+Install Python 3.12 and Git. Linux also requires `python3.12-venv`. Qwen requires an NVIDIA CUDA GPU.
 
 Windows:
 
@@ -45,9 +75,9 @@ Start and stop require Manage Server permission or registration in `BOT_OWNER_ID
 |---|---|
 | `supertonic-3` | F1–F5, M1–M5 |
 | `supertonic-2` | F1–F5, M1–M5 |
-| `melotts-kr` | KR |
 | `mms-tts-kor` | MMS |
 | `qwen3-tts-0.6b` | Sohee, Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna |
+| `qwen3-tts-1.7b` | Same voices; FasterQwen + Triton on WSL/Linux |
 
 Default: Supertonic 3 / F1 / 1.0×. Speed range: 0.7–2.0×. Qwen speaks Korean with every voice; Sohee is its native Korean speaker. Qwen loads on first use and adjusts speed after synthesis. Playback starts after the whole clip is generated.
 
@@ -83,4 +113,4 @@ Use `prepare.py --models mms-tts-kor qwen3-tts-0.6b` to check selected models. F
 
 ## Licenses
 
-Model and dependency licenses apply separately: [Supertonic](https://github.com/supertone-inc/supertonic-py), [Supertonic 3](https://huggingface.co/Supertone/supertonic-3), [Supertonic 2](https://huggingface.co/Supertone/supertonic-2), [MeloTTS](https://github.com/myshell-ai/MeloTTS), [MMS Korean](https://huggingface.co/facebook/mms-tts-kor), and [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS). MMS weights use CC-BY-NC 4.0.
+Model and dependency licenses apply separately: [Supertonic](https://github.com/supertone-inc/supertonic-py), [Supertonic 3](https://huggingface.co/Supertone/supertonic-3), [Supertonic 2](https://huggingface.co/Supertone/supertonic-2), [MMS Korean](https://huggingface.co/facebook/mms-tts-kor), [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS), and [FasterQwen3TTS](https://github.com/andimarafioti/faster-qwen3-tts). MMS weights use CC-BY-NC 4.0.

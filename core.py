@@ -7,13 +7,13 @@ SUPERTONIC_VOICES = tuple(f"{prefix}{i}" for prefix in ("F", "M") for i in range
 MODEL_VOICES = {
     "supertonic-3": SUPERTONIC_VOICES,
     "supertonic-2": SUPERTONIC_VOICES,
-    "melotts-kr": ("KR",),
     "mms-tts-kor": ("MMS",),
     "qwen3-tts-0.6b": (
         "Sohee", "Vivian", "Serena", "Uncle_Fu", "Dylan",
         "Eric", "Ryan", "Aiden", "Ono_Anna",
     ),
 }
+MODEL_VOICES["qwen3-tts-1.7b"] = MODEL_VOICES["qwen3-tts-0.6b"]
 MODELS = tuple(MODEL_VOICES)
 VOICES = tuple(dict.fromkeys(voice for voices in MODEL_VOICES.values() for voice in voices))
 
