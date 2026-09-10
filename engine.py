@@ -165,6 +165,26 @@ def _synthesize_in_worker(text, preference):
         sf.write(result, wav, sample_rate, format="WAV", subtype="PCM_16")
         return result.getvalue()
 
+    if preference.model == "melotts-kr":
+        import torch
+        from melo.api import TTS
+
+        if preference.model not in _MODELS:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            _MODELS[preference.model] = TTS(language="KR", device=device)
+        model = _MODELS[preference.model]
+        speaker_id = model.hps.data.spk2id["KR"]
+        wav = model.tts_to_file(
+            spoken_text,
+            speaker_id,
+            output_path=None,
+            speed=preference.speed,
+            quiet=True,
+        )
+        result = io.BytesIO()
+        sf.write(result, wav, model.hps.data.sampling_rate, format="WAV", subtype="PCM_16")
+        return result.getvalue()
+
     from supertonic import TTS
     if preference.model not in _MODELS:
         inference_threads = int(os.getenv("SUPERTONIC_INTRA_OP_THREADS", "8"))
@@ -215,7 +235,7 @@ class Engine:
 
     async def synthesize(self, text, preference):
         loop = asyncio.get_running_loop()
-        kind = "gpu" if preference.model in ("qwen3-tts-0.6b", "qwen3-tts-1.7b") else "cpu"
+        kind = "gpu" if preference.model in ("melotts-kr", "qwen3-tts-0.6b", "qwen3-tts-1.7b") else "cpu"
         async with self.locks[kind]:
             if self.closed:
                 raise RuntimeError("TTS engine is closed")

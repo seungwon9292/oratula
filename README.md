@@ -1,7 +1,7 @@
 # Oratula (Faster Qwen edition)
 
 This edition preserves all original Discord commands, voices, preferences, and
-Supertonic/MMS engines. MeloTTS has been removed. `qwen3-tts-0.6b` uses FasterQwen3TTS with
+Supertonic/MeloTTS/MMS engines. `qwen3-tts-0.6b` uses FasterQwen3TTS with
 CUDA graphs and SDPA. FlashAttention compilation is not required. Qwen requires
 an NVIDIA CUDA GPU; the CPU models remain available without one.
 
@@ -79,9 +79,16 @@ Start and stop require Manage Server permission or registration in `BOT_OWNER_ID
 |---|---|
 | `supertonic-3` | F1–F5, M1–M5 |
 | `supertonic-2` | F1–F5, M1–M5 |
+| `melotts-kr` | KR |
 | `mms-tts-kor` | MMS |
 | `qwen3-tts-0.6b` | Sohee, Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna |
 | `qwen3-tts-1.7b` | Same voices; FasterQwen + Triton on WSL/Linux |
+
+MeloTTS is installed with `--no-deps` because its package metadata pins an old
+Transformers release. This branch keeps Transformers 4.57 for FasterQwen and
+installs MeloTTS's runtime dependencies explicitly. The Qwen → MeloTTS → Qwen
+switching path is covered by an actual synthesis smoke test; `pip check` still
+reports the upstream MeloTTS metadata mismatch.
 
 Default: Supertonic 3 / F1 / 1.0×. Speed range: 0.7–2.0×. Qwen speaks Korean with every voice; Sohee is its native Korean speaker. Qwen loads on first use and adjusts speed after synthesis. Playback starts after the whole clip is generated.
 

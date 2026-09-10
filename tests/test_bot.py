@@ -34,6 +34,7 @@ class CoreTests(unittest.TestCase):
         store.close()
 
     def test_new_korean_models_have_their_own_voices(self):
+        self.assertEqual(MODEL_VOICES["melotts-kr"], ("KR",))
         self.assertEqual(MODEL_VOICES["mms-tts-kor"], ("MMS",))
         self.assertEqual(len(MODEL_VOICES["qwen3-tts-0.6b"]), 9)
         self.assertIn("Sohee", MODEL_VOICES["qwen3-tts-0.6b"])

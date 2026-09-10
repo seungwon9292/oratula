@@ -8,6 +8,34 @@ tokenizers>=0.22,<0.24
 accelerate==1.12.0
 uroman==1.3.1.1
 soundfile>=0.12,<1
+einops==0.8.2
+sox==1.5.0
+soxr>=0.5,<1
+fugashi==1.5.2
+cached_path
+num2words==0.5.12
+unidic_lite==1.0.8
+unidic==1.1.0
+mecab-python3==1.0.9
+pykakasi==2.2.1
+g2p_en==2.1.0
+anyascii==0.3.2
+jamo==0.4.1
+gruut==2.2.3
+g2pkk>=0.1.1
+kiwipiepy>=0.20,<1; platform_system == "Windows"
+python-mecab-ko>=1.3.7; platform_system != "Windows"
+librosa==0.9.1
+pydub==0.25.1
+eng_to_ipa==0.0.2
+inflect==7.0.0
+unidecode==1.3.7
+pypinyin==0.50.0
+cn2an==0.5.22
+jieba==0.42.1
+langid==1.1.6
+loguru==0.7.2
+txtsplit
 qwen-tts==0.1.1
 qwen3-tts-triton @ git+https://github.com/newgrit1004/qwen3-tts-triton.git@c64873e6a792d4dabc7ae592933fefd740ff4d5f ; platform_system == "Linux"
 faster-qwen3-tts @ git+https://github.com/andimarafioti/faster-qwen3-tts.git@a70afc0f81f7f5f8801c3227968f1102f43f211c

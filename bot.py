@@ -134,6 +134,7 @@ class TTSBot(discord.Client):
             Preference(model="qwen3-tts-1.7b", voice="Sohee", speed=1.0),
             Preference(model="supertonic-3", voice="F1", speed=1.0),
             Preference(model="supertonic-2", voice="F1", speed=1.0),
+            Preference(model="melotts-kr", voice="KR", speed=1.0),
             Preference(model="mms-tts-kor", voice="MMS", speed=1.0),
         )
         log_block("TTS 모델 예열 시작", "모델을 차례로 메모리에 불러옵니다.")

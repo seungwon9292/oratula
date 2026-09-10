@@ -54,8 +54,11 @@ else
 fi
 
 "$python" -m pip install -r requirements.txt
+"$python" -m pip install --no-deps git+https://github.com/myshell-ai/MeloTTS.git
 
 echo "Faster Qwen uses CUDA graphs with SDPA; no FlashAttention build is needed."
+
+"$python" -m unidic download
 
 
 if [[ ! -f .env ]]; then
