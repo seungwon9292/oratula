@@ -1,4 +1,5 @@
 import asyncio
+import numpy as np
 import os
 import time
 import unittest
@@ -14,6 +15,20 @@ def fake_synthesis(text, preference):
     if text == "crash":
         os._exit(1)
     return b"audio"
+
+
+class AudioProcessingTests(unittest.TestCase):
+    def test_change_tempo_preserves_pitch_and_changes_duration(self):
+        sample_rate = 24_000
+        time_axis = np.arange(sample_rate, dtype=np.float32) / sample_rate
+        wav = np.sin(2 * np.pi * 440 * time_axis).astype(np.float32)
+
+        faster = engine._change_tempo(wav, sample_rate, 1.25)
+
+        self.assertAlmostEqual(len(faster) / sample_rate, 0.8, delta=0.03)
+        spectrum = np.abs(np.fft.rfft(faster))
+        peak_frequency = np.fft.rfftfreq(len(faster), 1 / sample_rate)[spectrum.argmax()]
+        self.assertAlmostEqual(peak_frequency, 440, delta=3)
 
 
 class EngineRecoveryTests(unittest.IsolatedAsyncioTestCase):

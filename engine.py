@@ -2,11 +2,16 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
+from contextlib import redirect_stdout
 import io
 import multiprocessing
 from pathlib import Path
 import os
+import shutil
+import subprocess
 import warnings
+
+from core import split_emotion_instruction
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -24,6 +29,58 @@ warnings.filterwarnings(
 
 _MODELS = {}
 _STYLES = {}
+
+
+def _qwen_model_class():
+    """Import Qwen without probing optional SoX support used only by 25 Hz models."""
+    import sys
+    from types import ModuleType
+
+    previous_sox_module = sys.modules.get("sox")
+    if shutil.which("sox") is None:
+        optional_sox = ModuleType("sox")
+
+        class UnavailableTransformer:
+            def __init__(self, *args, **kwargs):
+                raise RuntimeError("SoX is required only for Qwen 25 Hz voice cloning")
+
+        optional_sox.Transformer = UnavailableTransformer
+        sys.modules["sox"] = optional_sox
+
+    try:
+        # qwen-tts imports its unused 25 Hz tokenizer eagerly. It prints SoX and
+        # flash-attn warnings even though this project uses the 12 Hz model with SDPA.
+        with redirect_stdout(io.StringIO()):
+            import qwen_tts  # Load its optional tokenizer imports under the SoX guard.
+            from faster_qwen3_tts import FasterQwen3TTS as Qwen3TTSModel
+    finally:
+        if previous_sox_module is None:
+            sys.modules.pop("sox", None)
+        else:
+            sys.modules["sox"] = previous_sox_module
+    return Qwen3TTSModel
+
+
+def _change_tempo(wav, sample_rate, speed):
+    """Change speaking rate with FFmpeg's speech-friendly, pitch-preserving filter."""
+    import imageio_ffmpeg
+    import numpy as np
+
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(),
+        "-hide_banner", "-loglevel", "error",
+        "-f", "f32le", "-ar", str(sample_rate), "-ac", "1", "-i", "pipe:0",
+        "-filter:a", f"atempo={speed:.6f}",
+        "-f", "f32le", "-ar", str(sample_rate), "-ac", "1", "pipe:1",
+    ]
+    result = subprocess.run(
+        command,
+        input=np.asarray(wav, dtype="<f4").tobytes(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    return np.frombuffer(result.stdout, dtype="<f4").copy()
 
 
 def _cached_or_download(repo_id):
@@ -48,6 +105,8 @@ def _synthesize_in_worker(text, preference):
     """Run imports, model loading, and inference outside the Discord process."""
     import soundfile as sf
 
+    instruction, spoken_text = split_emotion_instruction(text)
+
     if preference.model == "mms-tts-kor":
         import torch
         from transformers import VitsModel, VitsTokenizer
@@ -60,40 +119,48 @@ def _synthesize_in_worker(text, preference):
             _MODELS[preference.model] = (tokenizer, model)
         tokenizer, model = _MODELS[preference.model]
         model.speaking_rate = preference.speed
-        inputs = tokenizer(text=text, return_tensors="pt")
+        inputs = tokenizer(text=spoken_text, return_tensors="pt")
         with torch.inference_mode():
             wav = model(**inputs).waveform[0].cpu().numpy()
         result = io.BytesIO()
         sf.write(result, wav, model.config.sampling_rate, format="WAV", subtype="PCM_16")
         return result.getvalue()
 
-    if preference.model == "qwen3-tts-0.6b":
+    if preference.model in ("qwen3-tts-0.6b", "qwen3-tts-1.7b"):
         import numpy as np
         import torch
-        from librosa.effects import time_stretch
-        from qwen_tts import Qwen3TTSModel
+        Qwen3TTSModel = _qwen_model_class()
 
         if preference.model not in _MODELS:
             use_cuda = torch.cuda.is_available()
+            if not use_cuda:
+                raise RuntimeError("Faster Qwen requires CUDA. Select Supertonic or MMS for CPU synthesis.")
             model_path = _cached_or_download(
-                "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+                "Qwen/Qwen3-TTS-12Hz-" + ("1.7B" if preference.model.endswith("1.7b") else "0.6B") + "-CustomVoice"
             )
-            _MODELS[preference.model] = Qwen3TTSModel.from_pretrained(
+            loaded_model = Qwen3TTSModel.from_pretrained(
                 model_path,
-                device_map="cuda:0" if use_cuda else "cpu",
+                device="cuda:0",
                 dtype=torch.bfloat16 if use_cuda else torch.float32,
                 attn_implementation="sdpa",
             )
+            if preference.model.endswith("1.7b") and os.getenv("QWEN_TRITON", "1") == "1" and os.name != "nt":
+                from qwen3_tts_triton.models.patching import apply_triton_kernels, find_patchable_model
+                # Patch before the first generation captures CUDA graphs.
+                internal = find_patchable_model(loaded_model.model)
+                apply_triton_kernels(internal, patch_range=(0, 24))
+            _MODELS[preference.model] = loaded_model
         model = _MODELS[preference.model]
         wavs, sample_rate = model.generate_custom_voice(
-            text=text,
+            text=spoken_text,
             language="Korean",
             speaker=preference.voice,
+            instruct=instruction if preference.model.endswith("1.7b") else None,
             max_new_tokens=1024,
         )
         wav = np.asarray(wavs[0], dtype=np.float32)
         if abs(preference.speed - 1.0) > 0.01:
-            wav = time_stretch(wav, rate=preference.speed)
+            wav = _change_tempo(wav, sample_rate, preference.speed)
         result = io.BytesIO()
         sf.write(result, wav, sample_rate, format="WAV", subtype="PCM_16")
         return result.getvalue()
@@ -108,7 +175,7 @@ def _synthesize_in_worker(text, preference):
         model = _MODELS[preference.model]
         speaker_id = model.hps.data.spk2id["KR"]
         wav = model.tts_to_file(
-            text,
+            spoken_text,
             speaker_id,
             output_path=None,
             speed=preference.speed,
@@ -134,7 +201,7 @@ def _synthesize_in_worker(text, preference):
         _STYLES[style_key] = model.get_voice_style(voice_name=preference.voice)
     style = _STYLES[style_key]
     total_steps = max(1, int(os.getenv("SUPERTONIC_TOTAL_STEPS", "5")))
-    wav, _ = model.synthesize(text, voice_style=style, lang="ko",
+    wav, _ = model.synthesize(spoken_text, voice_style=style, lang="ko",
                               speed=preference.speed, total_steps=total_steps)
     result = io.BytesIO()
     sf.write(result, wav.reshape(-1), model.sample_rate, format="WAV", subtype="PCM_16")
@@ -168,7 +235,7 @@ class Engine:
 
     async def synthesize(self, text, preference):
         loop = asyncio.get_running_loop()
-        kind = "gpu" if preference.model in ("melotts-kr", "qwen3-tts-0.6b") else "cpu"
+        kind = "gpu" if preference.model in ("melotts-kr", "qwen3-tts-0.6b", "qwen3-tts-1.7b") else "cpu"
         async with self.locks[kind]:
             if self.closed:
                 raise RuntimeError("TTS engine is closed")

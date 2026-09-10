@@ -3,12 +3,11 @@ supertonic==1.3.1
 python-dotenv>=1.0,<2
 imageio-ffmpeg>=0.6,<0.7
 numpy==1.26.4
-# MeloTTS is installed from the official GitHub source with --no-deps by the setup scripts.
-# Its runtime dependencies are listed below.
 transformers==4.57.3
 tokenizers>=0.22,<0.24
 accelerate==1.12.0
 uroman==1.3.1.1
+soundfile>=0.12,<1
 einops==0.8.2
 sox==1.5.0
 soxr>=0.5,<1
@@ -37,3 +36,6 @@ jieba==0.42.1
 langid==1.1.6
 loguru==0.7.2
 txtsplit
+qwen-tts==0.1.1
+qwen3-tts-triton @ git+https://github.com/newgrit1004/qwen3-tts-triton.git@c64873e6a792d4dabc7ae592933fefd740ff4d5f ; platform_system == "Linux"
+faster-qwen3-tts @ git+https://github.com/andimarafioti/faster-qwen3-tts.git@a70afc0f81f7f5f8801c3227968f1102f43f211c

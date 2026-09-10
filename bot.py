@@ -131,9 +131,10 @@ class TTSBot(discord.Client):
 
     async def warmup_models(self):
         preferences = (
+            Preference(model="qwen3-tts-1.7b", voice="Sohee", speed=1.0),
             Preference(model="supertonic-3", voice="F1", speed=1.0),
-            Preference(model="melotts-kr", voice="KR", speed=1.0),
             Preference(model="supertonic-2", voice="F1", speed=1.0),
+            Preference(model="melotts-kr", voice="KR", speed=1.0),
             Preference(model="mms-tts-kor", voice="MMS", speed=1.0),
         )
         log_block("TTS 모델 예열 시작", "모델을 차례로 메모리에 불러옵니다.")
@@ -417,6 +418,8 @@ def register_commands(bot):
             "• `/oratula-toggle enabled:True` — 내 메시지 낭독 켜기\n"
             "• `/oratula-clear` — 현재 재생과 대기열 취소\n"
             "• `/oratula-status` — 연결 상태와 대기열 확인\n\n"
+            "🎭 **Qwen 1.7B 감정 표현:** `[기쁘게] 오늘 정말 좋아!`처럼 메시지 맨 앞에 지시를 적으세요.\n"
+            "대괄호 안은 음성으로 읽지 않고 Qwen의 감정·말투 지시로 사용합니다.\n\n"
             "메시지가 읽히지 않으면 본인이 이 음성방에 참가해 있는지 확인하세요.",
             ephemeral=True)
 
