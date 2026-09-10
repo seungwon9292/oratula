@@ -20,6 +20,8 @@ bash setup.sh
 bash start.sh
 ```
 
+For Windows with an NVIDIA GPU, WSL2 is recommended for Qwen. Install and prepare the Ubuntu distribution first, then run `bash setup.sh` inside WSL. After that, launching `start.ps1` from Windows forwards execution to WSL automatically; use `start.ps1 -Windows` only to run the native Windows environment.
+
 Between setup and startup, set `DISCORD_TOKEN` in the generated `.env`. Enable **Message Content Intent** in the Discord Developer Portal. Invite the bot with `bot` and `applications.commands` scopes and View Channels, Send Messages, Connect, and Speak permissions.
 
 Setup downloads models and generates sample WAVs in `data/`; initial downloads may take several minutes. Rerun setup after dependency updates. Restart the bot after code changes. Press `Ctrl+C` to stop.
@@ -47,7 +49,7 @@ Start and stop require Manage Server permission or registration in `BOT_OWNER_ID
 | `mms-tts-kor` | MMS |
 | `qwen3-tts-0.6b` | Sohee, Vivian, Serena, Uncle_Fu, Dylan, Eric, Ryan, Aiden, Ono_Anna |
 
-Default: Supertonic 3 / F1 / 1.05×. Speed range: 0.7–2.0×. Qwen speaks Korean with every voice; Sohee is its native Korean speaker. Qwen loads on first use and adjusts speed after synthesis. Playback starts after the whole clip is generated.
+Default: Supertonic 3 / F1 / 1.0×. Speed range: 0.7–2.0×. Qwen speaks Korean with every voice; Sohee is its native Korean speaker. Qwen loads on first use and adjusts speed after synthesis. Playback starts after the whole clip is generated.
 
 Optional `.env` settings: `DISCORD_GUILD_ID`, `BOT_OWNER_IDS` (comma-separated IDs), and `FFMPEG_PATH`. Settings are stored in `data/settings.sqlite3`; model downloads are cached under `data/`.
 

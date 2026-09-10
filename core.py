@@ -22,7 +22,7 @@ VOICES = tuple(dict.fromkeys(voice for voices in MODEL_VOICES.values() for voice
 class Preference:
     model: str = "supertonic-3"
     voice: str = "F1"
-    speed: float = 1.05
+    speed: float = 1.0
     enabled: bool = True
 
 

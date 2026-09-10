@@ -2,10 +2,13 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
+from contextlib import redirect_stdout
 import io
 import multiprocessing
 from pathlib import Path
 import os
+import shutil
+import subprocess
 import warnings
 
 ROOT = Path(__file__).resolve().parent
@@ -24,6 +27,64 @@ warnings.filterwarnings(
 
 _MODELS = {}
 _STYLES = {}
+
+
+def _qwen_model_class():
+    """Import Qwen without probing optional SoX support used only by 25 Hz models."""
+    import sys
+    from types import ModuleType
+
+    previous_sox_module = sys.modules.get("sox")
+    if shutil.which("sox") is None:
+        optional_sox = ModuleType("sox")
+
+        class UnavailableTransformer:
+            def __init__(self, *args, **kwargs):
+                raise RuntimeError("SoX is required only for Qwen 25 Hz voice cloning")
+
+        optional_sox.Transformer = UnavailableTransformer
+        sys.modules["sox"] = optional_sox
+
+    try:
+        # qwen-tts imports its unused 25 Hz tokenizer eagerly. It prints SoX and
+        # flash-attn warnings even though this project uses the 12 Hz model with SDPA.
+        with redirect_stdout(io.StringIO()):
+            from qwen_tts import Qwen3TTSModel
+    finally:
+        if previous_sox_module is None:
+            sys.modules.pop("sox", None)
+        else:
+            sys.modules["sox"] = previous_sox_module
+    return Qwen3TTSModel
+
+
+def _qwen_attention_implementation():
+    """Use FlashAttention when installed, while keeping the portable fallback."""
+    import importlib.util
+
+    return "flash_attention_2" if importlib.util.find_spec("flash_attn") else "sdpa"
+
+
+def _change_tempo(wav, sample_rate, speed):
+    """Change speaking rate with FFmpeg's speech-friendly, pitch-preserving filter."""
+    import imageio_ffmpeg
+    import numpy as np
+
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(),
+        "-hide_banner", "-loglevel", "error",
+        "-f", "f32le", "-ar", str(sample_rate), "-ac", "1", "-i", "pipe:0",
+        "-filter:a", f"atempo={speed:.6f}",
+        "-f", "f32le", "-ar", str(sample_rate), "-ac", "1", "pipe:1",
+    ]
+    result = subprocess.run(
+        command,
+        input=np.asarray(wav, dtype="<f4").tobytes(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    return np.frombuffer(result.stdout, dtype="<f4").copy()
 
 
 def _cached_or_download(repo_id):
@@ -70,8 +131,7 @@ def _synthesize_in_worker(text, preference):
     if preference.model == "qwen3-tts-0.6b":
         import numpy as np
         import torch
-        from librosa.effects import time_stretch
-        from qwen_tts import Qwen3TTSModel
+        Qwen3TTSModel = _qwen_model_class()
 
         if preference.model not in _MODELS:
             use_cuda = torch.cuda.is_available()
@@ -82,7 +142,7 @@ def _synthesize_in_worker(text, preference):
                 model_path,
                 device_map="cuda:0" if use_cuda else "cpu",
                 dtype=torch.bfloat16 if use_cuda else torch.float32,
-                attn_implementation="sdpa",
+                attn_implementation=_qwen_attention_implementation(),
             )
         model = _MODELS[preference.model]
         wavs, sample_rate = model.generate_custom_voice(
@@ -93,7 +153,7 @@ def _synthesize_in_worker(text, preference):
         )
         wav = np.asarray(wavs[0], dtype=np.float32)
         if abs(preference.speed - 1.0) > 0.01:
-            wav = time_stretch(wav, rate=preference.speed)
+            wav = _change_tempo(wav, sample_rate, preference.speed)
         result = io.BytesIO()
         sf.write(result, wav, sample_rate, format="WAV", subtype="PCM_16")
         return result.getvalue()
