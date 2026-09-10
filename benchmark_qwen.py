@@ -16,12 +16,12 @@ from engine import DATA, _MODELS, _synthesize_in_worker
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="qwen3-tts-0.6b", choices=["qwen3-tts-0.6b", "qwen3-tts-1.7b"])
     parser.add_argument("--backend", choices=["faster", "hybrid"], default="faster")
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--threads", type=int)
     parser.add_argument("--text", default="안녕하세요. 디스코드 음성 테스트입니다.")
     args = parser.parse_args()
+    model_name = "qwen3-tts-1.7b"
     os.environ["QWEN_TRITON"] = "1" if args.backend == "hybrid" else "0"
     if args.threads:
         torch.set_num_threads(args.threads)
@@ -29,7 +29,7 @@ def main():
     if torch.cuda.is_available():
         print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
     print(f"CPU threads: {torch.get_num_threads()}", flush=True)
-    preference = Preference(model=args.model, voice="Sohee")
+    preference = Preference(model=model_name, voice="Sohee")
     DATA.mkdir(parents=True, exist_ok=True)
     records = []
     for run in range(args.runs + 1):
@@ -55,16 +55,16 @@ def main():
         elapsed = time.perf_counter() - start
         wav, sr = sf.read(io.BytesIO(audio))
         duration = len(wav) / sr
-        (DATA / f"sample-{args.model}-{args.backend}-{phase}.wav").write_bytes(audio)
+        (DATA / f"sample-{model_name}-{args.backend}-{phase}.wav").write_bytes(audio)
         records.append(dict(phase=phase, elapsed_s=elapsed, audio_s=duration, **stages))
         print(stages, flush=True)
         model = _MODELS[preference.model]
         print(f"{phase}: engine={type(model).__module__}.{type(model).__name__}, "
               f"elapsed={elapsed:.2f}s, audio={duration:.2f}s, "
               f"audio/elapsed={duration / elapsed:.2f}x", flush=True)
-    report = dict(model=args.model, backend=args.backend, threads=torch.get_num_threads(), runs=records,
+    report = dict(model=model_name, backend=args.backend, threads=torch.get_num_threads(), runs=records,
                   warm_mean_s=statistics.mean(r["elapsed_s"] for r in records[1:]))
-    (DATA / f"benchmark-{args.model}-{args.backend}-{torch.get_num_threads()}threads.json").write_text(json.dumps(report, indent=2))
+    (DATA / f"benchmark-{model_name}-{args.backend}-{torch.get_num_threads()}threads.json").write_text(json.dumps(report, indent=2))
     print(f"Warm mean: {report['warm_mean_s']:.3f}s", flush=True)
 
 

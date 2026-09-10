@@ -36,9 +36,24 @@ class CoreTests(unittest.TestCase):
     def test_new_korean_models_have_their_own_voices(self):
         self.assertEqual(MODEL_VOICES["melotts-kr"], ("KR",))
         self.assertEqual(MODEL_VOICES["mms-tts-kor"], ("MMS",))
-        self.assertEqual(len(MODEL_VOICES["qwen3-tts-0.6b"]), 9)
-        self.assertIn("Sohee", MODEL_VOICES["qwen3-tts-0.6b"])
-        self.assertIn("Aiden", MODEL_VOICES["qwen3-tts-0.6b"])
+        self.assertEqual(len(MODEL_VOICES["qwen3-tts-1.7b"]), 9)
+        self.assertIn("Sohee", MODEL_VOICES["qwen3-tts-1.7b"])
+        self.assertIn("Aiden", MODEL_VOICES["qwen3-tts-1.7b"])
+        self.assertNotIn("qwen3-tts-0.6b", MODEL_VOICES)
+
+    def test_legacy_qwen_preference_migrates_to_1_7b(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.db"
+            store = Store(path)
+            with store.db:
+                store.db.execute(
+                    "INSERT INTO preferences VALUES (?, ?, ?, ?, ?)",
+                    (10, "qwen3-tts-0.6b", "Sohee", 1.0, 1),
+                )
+            store.close()
+            store = Store(path)
+            self.assertEqual(store.get(10), Preference("qwen3-tts-1.7b", "Sohee", 1.0, True))
+            store.close()
 
     def test_voice_targets_are_stored_per_guild(self):
         store = Store(":memory:")

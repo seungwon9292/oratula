@@ -9,12 +9,11 @@ MODEL_VOICES = {
     "supertonic-2": SUPERTONIC_VOICES,
     "melotts-kr": ("KR",),
     "mms-tts-kor": ("MMS",),
-    "qwen3-tts-0.6b": (
+    "qwen3-tts-1.7b": (
         "Sohee", "Vivian", "Serena", "Uncle_Fu", "Dylan",
         "Eric", "Ryan", "Aiden", "Ono_Anna",
     ),
 }
-MODEL_VOICES["qwen3-tts-1.7b"] = MODEL_VOICES["qwen3-tts-0.6b"]
 MODELS = tuple(MODEL_VOICES)
 VOICES = tuple(dict.fromkeys(voice for voices in MODEL_VOICES.values() for voice in voices))
 
@@ -35,6 +34,11 @@ class Store:
              speed REAL NOT NULL, enabled INTEGER NOT NULL)""")
         self.db.execute("""CREATE TABLE IF NOT EXISTS guild_targets
             (guild_id INTEGER PRIMARY KEY, channel_id INTEGER NOT NULL)""")
+        with self.db:
+            self.db.execute(
+                "UPDATE preferences SET model=? WHERE model=?",
+                ("qwen3-tts-1.7b", "qwen3-tts-0.6b"),
+            )
 
     def get(self, user_id):
         row = self.db.execute(

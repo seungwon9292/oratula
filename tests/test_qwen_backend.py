@@ -35,8 +35,9 @@ class QwenBackendTests(unittest.TestCase):
                 self.assertEqual(call.kwargs["text"], "테스트")
                 self.assertEqual(call.kwargs["instruct"], "기쁘게")
 
-    def test_both_sizes_expose_same_speakers(self):
-        self.assertEqual(MODEL_VOICES["qwen3-tts-0.6b"], MODEL_VOICES["qwen3-tts-1.7b"])
+    def test_only_1_7b_is_exposed(self):
+        self.assertEqual(len(MODEL_VOICES["qwen3-tts-1.7b"]), 9)
+        self.assertNotIn("qwen3-tts-0.6b", MODEL_VOICES)
 
 
 if __name__ == "__main__":
