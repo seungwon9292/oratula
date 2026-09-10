@@ -1,0 +1,6 @@
+.env
+.venv/
+.venv-moved-old/
+data/
+__pycache__/
+*.pyc
